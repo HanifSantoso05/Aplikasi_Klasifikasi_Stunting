@@ -81,7 +81,6 @@ with st.container():
             generation = st.number_input('Masukkan Nilai Generation', format='%.0f')
             crossover = st.number_input('Masukkan Nilai Crossover Rate (0.00 - 1.00)', min_value=0.00, max_value=1.00)
             mutation = st.number_input('Masukkan Nilai Mutation Rate (0.00 - 1.00)', min_value=0.00, max_value=1.00)
-            uploaded_file = st.file_uploader("Choose a file")
             submit = st.form_submit_button("Submit")
             if submit:
                 def modelingGASVM(population, generation, crossover, mutation, data):
@@ -233,7 +232,7 @@ with st.container():
                 ))
 
                 st.header("Dataset Stunting")
-                dataframe = pd.read_csv(uploaded_file)
+                dataframe = pd.read_csv('https://raw.githubusercontent.com/HanifSantoso05/dataset_matkul/main/Data_Kallianget_Semua_Fitur_Sistem.csv')
                 st.dataframe(dataframe)
 
                 st.header("Dataset Stunting untuk Klasifikasi")
