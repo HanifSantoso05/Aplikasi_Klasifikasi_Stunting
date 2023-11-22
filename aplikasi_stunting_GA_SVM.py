@@ -726,9 +726,10 @@ with st.container():
 
                     #Prediksi
                     selected_features_indices = [index for index, value in enumerate(best_individual) if value]
+                    selected_feature_names = [features_names[i] for i in selected_features_indices]
 
                     st.write("#### Fitur terseleksi")
-                    st.info(selected_features_indices)
+                    st.info(selected_feature_names)
                     new_data_selected = input_norm.iloc[:, selected_features_indices].copy().to_numpy()
                     new_predictions = clf.predict(new_data_selected)
                     
