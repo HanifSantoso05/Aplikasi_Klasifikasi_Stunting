@@ -76,219 +76,214 @@ with st.container():
         st.dataframe(df.style.format({'BB Lahir (kg)': '{:.2f}','BB saat ini (kg)': '{:.2f}', 'TB saat ini (cm)': '{:.2f}'}))
 
     elif selected == "Modeling":
-        with st.form("Modeling"):
-            population = st.number_input('Masukkan Nilai Population Size', format='%.0f')
-            generation = st.number_input('Masukkan Nilai Generation', format='%.0f')
-            crossover = st.number_input('Masukkan Nilai Crossover Rate (0.00 - 1.00)', min_value=0.00, max_value=1.00)
-            mutation = st.number_input('Masukkan Nilai Mutation Rate (0.00 - 1.00)', min_value=0.00, max_value=1.00)
-            submit = st.form_submit_button("Submit")
-            if submit:
-                def modelingGASVM(population, generation, crossover, mutation, data):
-                    X = data.drop(columns=["Status Stunting"])
-                    y = data["Status Stunting"]
+        population = 20
+        generation = 10
+        crossover = 0.7
+        mutation = 0.2
+        def modelingGASVM(population, generation, crossover, mutation, data):
+            X = data.drop(columns=["Status Stunting"])
+            y = data["Status Stunting"]
 
-                    # Normalisasi
-                    scaler = MinMaxScaler()
-                    scaled = scaler.fit_transform(X)
-                    features_names = X.columns.copy()
-                    scaled_features = pd.DataFrame(scaled, columns=features_names)
+            # Normalisasi
+            scaler = MinMaxScaler()
+            scaled = scaler.fit_transform(X)
+            features_names = X.columns.copy()
+            scaled_features = pd.DataFrame(scaled, columns=features_names)
 
-                    # Pisahkan data menjadi data latih dan data uji
-                    X_train, X_test, y_train, y_test = train_test_split(scaled_features, y, test_size=0.2, random_state=42)
+            # Pisahkan data menjadi data latih dan data uji
+            X_train, X_test, y_train, y_test = train_test_split(scaled_features, y, test_size=0.1, random_state=42)
 
-                    # Define the DEAP creator for the fitness function and individuals
-                    creator.create("FitnessMax", base.Fitness, weights=(1.0,))
-                    creator.create("Individual", np.ndarray, fitness=creator.FitnessMax)
+            # Define the DEAP creator for the fitness function and individuals
+            creator.create("FitnessMax", base.Fitness, weights=(1.0,))
+            creator.create("Individual", np.ndarray, fitness=creator.FitnessMax)
 
-                    # Fungsi untuk inisialisasi populasi awal
-                    def initialize_population(pop_size, num_features):
-                        return [creator.Individual(np.random.randint(2, size=num_features)) for _ in range(pop_size)]
+            # Fungsi untuk inisialisasi populasi awal
+            def initialize_population(pop_size, num_features):
+                return [creator.Individual(np.random.randint(2, size=num_features)) for _ in range(pop_size)]
 
-                    # Fungsi SVM menggunakan scikit-learn
-                    def sklearn_svm(X_train, y_train, X_test, y_test, selected_features):
-                        X_train_selected = X_train.iloc[:, selected_features].copy().to_numpy()
-                        X_test_selected = X_test.iloc[:, selected_features].copy().to_numpy()
+            # Fungsi SVM menggunakan scikit-learn
+            def sklearn_svm(X_train, y_train, X_test, y_test, selected_features):
+                X_train_selected = X_train.iloc[:, selected_features].copy().to_numpy()
+                X_test_selected = X_test.iloc[:, selected_features].copy().to_numpy()
 
 
-                        clf = SVC(gamma=1.0, C=4.0, kernel="rbf", max_iter=10)  # Menggunakan kernel linear sebagai contoh
-                        clf.fit(X_train_selected, y_train)
-                        y_pred = clf.predict(X_test_selected)
+                clf = SVC()  # Menggunakan kernel linear sebagai contoh
+                clf.fit(X_train_selected, y_train)
+                y_pred = clf.predict(X_test_selected)
 
-                        accuracy = accuracy_score(y_test, y_pred)
-                        return accuracy, y_pred
+                accuracy = accuracy_score(y_test, y_pred)
+                return accuracy, y_pred
 
-                    # Fungsi untuk menghitung nilai fitness dari setiap individu dalam populasi
-                    def calculate_fitness(individual, X_train, y_train, X_test, y_test):
-                        selected_features = np.where(individual == 1)[0]
+            # Fungsi untuk menghitung nilai fitness dari setiap individu dalam populasi
+            def calculate_fitness(individual, X_train, y_train, X_test, y_test):
+                selected_features = np.where(individual == 1)[0]
 
-                        if len(selected_features) == 0:
-                            return (0,)
-                        else:
-                            accuracy, _ = sklearn_svm(X_train, y_train, X_test, y_test, selected_features)
-                            return (accuracy,)
+                if len(selected_features) == 0:
+                    return (0,)
+                else:
+                    accuracy, _ = sklearn_svm(X_train, y_train, X_test, y_test, selected_features)
+                    return (accuracy,)
 
-                    # Fungsi utama untuk algoritma genetika
-                    def genetic_algorithm(X_train, X_test, y_train, y_test, pop_size, num_generations, cxpb, mutpb):
-                        num_features = X_train.shape[1]
+            # Fungsi utama untuk algoritma genetika
+            def genetic_algorithm(X_train, X_test, y_train, y_test, pop_size, num_generations, cxpb, mutpb):
+                num_features = X_train.shape[1]
 
-                        # Inisialisasi populasi awal
-                        population = initialize_population(pop_size, num_features)
+                # Inisialisasi populasi awal
+                population = initialize_population(pop_size, num_features)
 
-                        # Register DEAP operators
-                        toolbox = base.Toolbox()
-                        toolbox.register("evaluate", calculate_fitness, X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test)
-                        toolbox.register("mate", tools.cxTwoPoint)
-                        toolbox.register("mutate", tools.mutFlipBit, indpb=0.05)
-                        toolbox.register("select", tools.selTournament, tournsize=3)
+                # Register DEAP operators
+                toolbox = base.Toolbox()
+                toolbox.register("evaluate", calculate_fitness, X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test)
+                toolbox.register("mate", tools.cxTwoPoint)
+                toolbox.register("mutate", tools.mutFlipBit, indpb=0.05)
+                toolbox.register("select", tools.selTournament, tournsize=3)
 
-                        # Evaluate the entire population
-                        fitnesses = list(map(toolbox.evaluate, population))
-                        for ind, fit in zip(population, fitnesses):
-                            ind.fitness.values = fit
+                # Evaluate the entire population
+                fitnesses = list(map(toolbox.evaluate, population))
+                for ind, fit in zip(population, fitnesses):
+                    ind.fitness.values = fit
 
-                        result_data = []
-                        for generation in range(num_generations):
-                            # Select the next generation individuals
-                            offspring = toolbox.select(population, len(population))
+                result_data = []
+                for generation in range(num_generations):
+                    # Select the next generation individuals
+                    offspring = toolbox.select(population, len(population))
 
-                            # Clone the selected individuals
-                            offspring = list(map(toolbox.clone, offspring))
+                    # Clone the selected individuals
+                    offspring = list(map(toolbox.clone, offspring))
 
-                            # Apply crossover and mutation on the offspring
-                            for child1, child2 in zip(offspring[::2], offspring[1::2]):
-                                if np.random.rand() < cxpb:
-                                    toolbox.mate(child1, child2)
-                                    del child1.fitness.values
-                                    del child2.fitness.values
+                    # Apply crossover and mutation on the offspring
+                    for child1, child2 in zip(offspring[::2], offspring[1::2]):
+                        if np.random.rand() < cxpb:
+                            toolbox.mate(child1, child2)
+                            del child1.fitness.values
+                            del child2.fitness.values
 
-                            for mutant in offspring:
-                                if np.random.rand() < mutpb:
-                                    toolbox.mutate(mutant)
-                                    del mutant.fitness.values
+                    for mutant in offspring:
+                        if np.random.rand() < mutpb:
+                            toolbox.mutate(mutant)
+                            del mutant.fitness.values
 
-                            # Evaluate the individuals with an invalid fitness
-                            invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
-                            fitnesses = map(toolbox.evaluate, invalid_ind)
-                            for ind, fit in zip(invalid_ind, fitnesses):
-                                ind.fitness.values = fit
+                    # Evaluate the individuals with an invalid fitness
+                    invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
+                    fitnesses = map(toolbox.evaluate, invalid_ind)
+                    for ind, fit in zip(invalid_ind, fitnesses):
+                        ind.fitness.values = fit
 
-                            # Replace the old population by the offspring
-                            population[:] = offspring
+                    # Replace the old population by the offspring
+                    population[:] = offspring
 
-                            # Gather all the fitnesses in one list and print the statistics
-                            fits = [ind.fitness.values[0] for ind in population]
-                            length = len(population)
-                            mean = sum(fits) / length
-                            sum2 = sum(x*x for x in fits)
-                            std = np.sqrt(sum2 / length - mean**2)
+                    # Gather all the fitnesses in one list and print the statistics
+                    fits = [ind.fitness.values[0] for ind in population]
+                    length = len(population)
+                    mean = sum(fits) / length
+                    sum2 = sum(x*x for x in fits)
+                    std = np.sqrt(sum2 / length - mean**2)
 
-                            best_individual = tools.selBest(population, 1)[0]
-                            fitur = [index for index, value in enumerate(best_individual) if value]
+                    best_individual = tools.selBest(population, 1)[0]
+                    fitur = [index for index, value in enumerate(best_individual) if value]
 
-                            result_data.append({
-                                'Generation': generation + 1,
-                                'Population Size': pop_size,
-                                'Crossover Rate': cxpb,
-                                'Mutation Rate': mutpb,
-                                'Fitness': max(fits),
-                                'Avg Fitness': mean,
-                                'Best Individual': best_individual,
-                                'Selected Feature':fitur
-                            })
+                    result_data.append({
+                        'Generation': generation + 1,
+                        'Population Size': pop_size,
+                        'Crossover Rate': cxpb,
+                        'Mutation Rate': mutpb,
+                        'Fitness': max(fits),
+                        'Avg Fitness': mean,
+                        'Best Individual': best_individual,
+                        'Selected Feature':fitur
+                    })
 
-                            result_df = pd.DataFrame(result_data)
-                        return best_individual, result_df
+                    result_df = pd.DataFrame(result_data)
+                return best_individual, result_df
 
-                    pop_size = int(population)  # Ukuran populasi
-                    num_generations = int(generation)  # Jumlah generasi
-                    cxpb = crossover  # Probabilitas crossover
-                    mutpb = mutation  # Probabilitas mutasi
+            pop_size = int(population)  # Ukuran populasi
+            num_generations = int(generation)  # Jumlah generasi
+            cxpb = crossover  # Probabilitas crossover
+            mutpb = mutation  # Probabilitas mutasi
 
-                    best_individual,result_df = genetic_algorithm(X_train, X_test, y_train, y_test, pop_size, num_generations, cxpb, mutpb)
+            best_individual,result_df = genetic_algorithm(X_train, X_test, y_train, y_test, pop_size, num_generations, cxpb, mutpb)
 
-                    # Output fitur terbaik yang dipilih
-                    selected_features = np.where(best_individual == 1)[0]
-                    selected_feature_names = [features_names[i] for i in selected_features]
+            # Output fitur terbaik yang dipilih
+            selected_features = np.where(best_individual == 1)[0]
+            selected_feature_names = [features_names[i] for i in selected_features]
 
-                    # Evaluasi model dengan SVM menggunakan fitur terbaik
-                    X_train_selected = X_train.iloc[:, selected_features].copy().to_numpy()
-                    X_test_selected = X_test.iloc[:, selected_features].copy().to_numpy()
+            # Evaluasi model dengan SVM menggunakan fitur terbaik
+            X_train_selected = X_train.iloc[:, selected_features].copy().to_numpy()
+            X_test_selected = X_test.iloc[:, selected_features].copy().to_numpy()
 
-                    clf = SVC(gamma=1.0, C=4.0, kernel="rbf", max_iter=10)   # Menggunakan kernel linear sebagai contoh
-                    clf.fit(X_train_selected, y_train)
-                    y_pred = clf.predict(X_test_selected)
+            clf = SVC(gamma=0.0000001, C=9.0, kernel="rbf", max_iter=5)   # Menggunakan kernel linear sebagai contoh
+            clf.fit(X_train_selected, y_train)
+            y_pred = clf.predict(X_test_selected)
 
-                    precision = precision_score(y_test, y_pred)*100
-                    recall = recall_score(y_test, y_pred)*100
-                    f1 = f1_score(y_test, y_pred)*100
-                    accuracy = accuracy_score(y_test, y_pred)*100
+            precision = precision_score(y_test, y_pred)*100
+            recall = recall_score(y_test, y_pred)*100
+            f1 = f1_score(y_test, y_pred)*100
+            accuracy = accuracy_score(y_test, y_pred)*100
 
-                    cm = confusion_matrix(y_test, y_pred)
+            cm = confusion_matrix(y_test, y_pred)
 
-                    return(scaled_features, result_df, selected_feature_names,precision,recall,f1,accuracy,cm)
-                
-                ga_input = pd.DataFrame((
-                    [["Population Size",'%.0f' % population],["Generation",'%.0f' % generation],["Crossover Rate",'%.2f' % crossover],["Mutation Rate",'%.2f' % mutation]]
-                ))
+            return(scaled_features, result_df, selected_feature_names,precision,recall,f1,accuracy,cm)
+        
+        ga_input = pd.DataFrame((
+            [["Population Size",'%.0f' % population],["Generation",'%.0f' % generation],["Crossover Rate",'%.2f' % crossover],["Mutation Rate",'%.2f' % mutation]]
+        ))
 
-                st.header("Dataset Stunting")
-                dataframe = pd.read_csv('https://raw.githubusercontent.com/HanifSantoso05/dataset_matkul/main/Data_Kallianget_Semua_Fitur_Sistem.csv')
-                st.dataframe(dataframe)
+        st.header("Dataset Stunting")
+        dataframe = pd.read_csv('https://raw.githubusercontent.com/HanifSantoso05/dataset_matkul/main/Data_Kallianget_Semua_Fitur_Sistem.csv')
+        st.dataframe(dataframe)
 
-                st.header("Dataset Stunting untuk Klasifikasi")
-                df_sistem = dataframe.drop(columns=["Nama Lengkap","Tanggal Lahir (DD-MM-YY)","Nama Ortu","Desa Domisili"])
+        st.header("Dataset Stunting untuk Klasifikasi")
+        df_sistem = dataframe.drop(columns=["Nama Lengkap","Tanggal Lahir (DD-MM-YY)","Nama Ortu","Desa Domisili"])
 
-                label_encoder = LabelEncoder()
-                status_gizi_encode = label_encoder.fit_transform(df_sistem['Status Gizi (TB/U)'])+ 1 
-                status_gizi_encode_df = pd.DataFrame(status_gizi_encode,columns = ['Status Gizi (TB/U)'])
-                jenis_kelamin_encode = label_encoder.fit_transform(df_sistem['Jenis Kelamin (L/P)'])
-                jenis_kelamin_encode_flipped = np.abs(jenis_kelamin_encode - 1)
-                jenis_kelamin_encode_df = pd.DataFrame(jenis_kelamin_encode_flipped,columns = ['Jenis Kelamin (L/P)'])
-                status_stunting_encode = label_encoder.fit_transform(df_sistem['Status Stunting'])
-                status_stunting_encode_new = 1 - 2 * status_stunting_encode
-                status_stunting_encode_new = pd.DataFrame(status_stunting_encode_new,columns = ['Status Stunting'])
+        label_encoder = LabelEncoder()
+        status_gizi_encode = label_encoder.fit_transform(df_sistem['Status Gizi (TB/U)'])+ 1 
+        status_gizi_encode_df = pd.DataFrame(status_gizi_encode,columns = ['Status Gizi (TB/U)'])
+        jenis_kelamin_encode = label_encoder.fit_transform(df_sistem['Jenis Kelamin (L/P)'])
+        jenis_kelamin_encode_flipped = np.abs(jenis_kelamin_encode - 1)
+        jenis_kelamin_encode_df = pd.DataFrame(jenis_kelamin_encode_flipped,columns = ['Jenis Kelamin (L/P)'])
+        status_stunting_encode = label_encoder.fit_transform(df_sistem['Status Stunting'])
+        status_stunting_encode_new = 1 - 2 * status_stunting_encode
+        status_stunting_encode_new = pd.DataFrame(status_stunting_encode_new,columns = ['Status Stunting'])
 
-                df_sistem_new = pd.concat([jenis_kelamin_encode_df,df_sistem.drop(columns=['Jenis Kelamin (L/P)','Status Gizi (TB/U)','Status Stunting']),status_gizi_encode_df,status_stunting_encode_new],axis=1)
+        df_sistem_new = pd.concat([jenis_kelamin_encode_df,df_sistem.drop(columns=['Jenis Kelamin (L/P)','Status Gizi (TB/U)','Status Stunting']),status_gizi_encode_df,status_stunting_encode_new],axis=1)
 
-                st.dataframe(df_sistem_new.style.format({'BB Lahir (kg)':'{:.2f}','BB saat ini (kg)': '{:.2f}', 'TB saat ini (cm)': '{:.2f}'}))
-                
-                scaled_features, result_df, selected_feature_names,precision,recall,f1,accuracy,cm = modelingGASVM(population,generation,crossover,mutation,df_sistem_new)
+        st.dataframe(df_sistem_new.style.format({'BB Lahir (kg)':'{:.2f}','BB saat ini (kg)': '{:.2f}', 'TB saat ini (cm)': '{:.2f}'}))
+        
+        scaled_features, result_df, selected_feature_names,precision,recall,f1,accuracy,cm = modelingGASVM(population,generation,crossover,mutation,df_sistem_new)
 
-                st.header("Hasil Normaliasasi data")
-                st.dataframe(scaled_features)
+        st.header("Hasil Normaliasasi data")
+        st.dataframe(scaled_features)
 
-                st.header("Parameter Input Genetika Algoritma")
-                st.dataframe(ga_input)
+        st.header("Parameter Input Genetika Algoritma")
+        st.dataframe(ga_input)
 
-                st.header("Hasil Evaluasi Seleksi Fitur GA")
-                st.dataframe(result_df)
+        st.header("Hasil Evaluasi Seleksi Fitur GA")
+        st.dataframe(result_df)
 
-                st.header("Grafik Kinerja GA-SVM")
-                st.bar_chart(data=result_df, x="Generation", y=["Fitness","Avg Fitness"], width=0, height=0, use_container_width=True)
+        st.header("Grafik nilai Fitness dan Rata-Rata nilai fitness")
+        st.bar_chart(data=result_df, x="Generation", y=["Fitness","Avg Fitness"], width=0, height=0, use_container_width=True)
 
-                st.header("Fitur Terseleksi")
-                st.dataframe(selected_feature_names)
+        st.header("Fitur Terseleksi")
+        st.dataframe(selected_feature_names)
 
-                st.header("Hasil Evaluasi metode SVM")
-                # Hitung metrics
-                disp = ConfusionMatrixDisplay(confusion_matrix=cm)
-                disp.plot()
-                st.set_option('deprecation.showPyplotGlobalUse', False)
-                st.pyplot(plt.show())
+        st.header("Hasil Evaluasi metode SVM")
+        # Hitung metrics
+        disp = ConfusionMatrixDisplay(confusion_matrix=cm)
+        disp.plot()
+        st.set_option('deprecation.showPyplotGlobalUse', False)
+        st.pyplot(plt.show())
 
-                st.write("Accuracy :")
-                st.info(accuracy)
+        st.write("Accuracy :")
+        st.info(accuracy)
 
-                st.write("Precision :")
-                st.info(precision)
+        st.write("Precision :")
+        st.info(precision)
 
-                st.write("Recall :")
-                st.info(recall)
+        st.write("Recall :")
+        st.info(recall)
 
-                st.write("F1-Score :")
-                st.info(f1) 
-            else:
-                st.warning("Masukkan nilai dan data pada form")
+        st.write("F1-Score :")
+        st.info(f1) 
 
 
     elif selected == "Implementation":
@@ -315,7 +310,7 @@ with st.container():
                 X_train_selected = X_train.iloc[:, selected_features].copy().to_numpy()
                 X_test_selected = X_test.iloc[:, selected_features].copy().to_numpy()
 
-                clf = SVC(C=3.0,gamma=0.1,kernel='rbf',max_iter=30)
+                clf = SVC(gamma=0.0000001, C=9.0, kernel="rbf", max_iter=5)
                 clf.fit(X_train_selected, y_train)
 
                 y_pred = clf.predict(X_test_selected)
@@ -709,27 +704,19 @@ with st.container():
                     ])
 
                     st.write("#### Status Gizi TB/U")
-                    st.write(status)
-
-                    #Data Input
-                    st.write("#### Data Input")
-                    st.dataframe(inputs)
+                    st.info(status)
 
                     #Normalisasi data input
                     df_min = x.iloc[:,0:7].min()
                     df_max = x.iloc[:,0:7].max()
                     input_norm = ((inputs - df_min) / (df_max - df_min))
                     input_norm = pd.DataFrame(np.array(input_norm).reshape(1,-1))
-
-                    st.write("#### Normalisasi data Input")
-                    st.write(input_norm)
-
                     #Prediksi
                     selected_features_indices = [index for index, value in enumerate(best_individual) if value]
                     selected_feature_names = [features_names[i] for i in selected_features_indices]
 
                     st.write("#### Fitur terseleksi")
-                    st.info(selected_feature_names)
+                    st.success(selected_feature_names)
                     new_data_selected = input_norm.iloc[:, selected_features_indices].copy().to_numpy()
                     new_predictions = clf.predict(new_data_selected)
                     
