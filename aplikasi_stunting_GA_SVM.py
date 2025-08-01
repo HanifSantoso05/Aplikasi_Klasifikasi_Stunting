@@ -270,7 +270,7 @@ with st.container():
         # Hitung metrics
         disp = ConfusionMatrixDisplay(confusion_matrix=cm)
         disp.plot()
-        st.set_option('deprecation.showPyplotGlobalUse', False)
+        #st.set_option('deprecation.showPyplotGlobalUse', False)
         st.pyplot(plt.show())
 
         st.write("Accuracy :")
